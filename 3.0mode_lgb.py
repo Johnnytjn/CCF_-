@@ -69,17 +69,11 @@ train['distance'] = hafuman_km(train['s_longitude'],train['s_latitude'],train['l
 
 # train['distance'] = np.log1p(train['distance'])
 
-# 由于历史记录的意义并没有那么明确，因此将历史转化为和当前的差值处理
 
 
 train['category_id'] = train['category_id'].map(lambda x:str(x).split('_')[1])
 train['mall_id'] = train['mall_id'].map(lambda x:str(x).split('_')[1])
 
-# train['sw_average_ratio'] = (train['c_sw_average'] + 0.5 ) / (train['sw_average'] + 1)
-# train['bw_average_ratio'] = (train['c_bw_average'] + 0.5 )/ (train['bw_average'] + 1)
-
-# train['price'] = np.log1p(train['price'])
-#
 print(train.head())
 print(train.columns)
 # 特征字段
@@ -104,15 +98,9 @@ val['distance'] = hafuman_km(val['s_longitude'],val['s_latitude'],val['longitude
 
 #val['distance'] = np.log1p(val['distance'])
 
-
-
 val['category_id'] = val['category_id'].map(lambda x:str(x).split('_')[1])
 val['mall_id'] = val['mall_id'].map(lambda x:str(x).split('_')[1])
 
-# val['sw_average_ratio'] = (val['c_sw_average'] + 0.5 ) / (val['sw_average'] + 1)
-# val['bw_average_ratio'] = (val['c_bw_average'] + 0.5 ) / (val['bw_average'] + 1)
-
-# val['price'] = np.log1p(val['price'])
 
 print(val.head())
 

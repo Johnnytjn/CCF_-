@@ -20,7 +20,6 @@ del user_shop_behavior;gc.collect()
 def make_features(feature,org_data,mode= list([]),index='index',row_id='index'):
     # 选择构造特征的候选集的数量 n = 1 2 3 .
 
-
     # ps：自己提取啊啊啊啊啊啊啊
     # 这个部分大家可以自己筛选，我是先选择强度，后选择频次
     # 制作标签
@@ -97,7 +96,7 @@ def get_one_feature(count_feature):
         day_count_feature_shop_hot.rename(columns={'strength':'%d_shop_hot'%(day_index)},inplace=True)
         count_feature = pd.merge(count_feature,day_count_feature_shop_hot,on=['mall_id','shop_id'],how='left')
         count_feature = count_feature.fillna(0)
-    
+
     # 链接时发生的特征
 
     # 3.2 wifi被链接的次数
@@ -156,11 +155,6 @@ def get_one_feature(count_feature):
 
     count_feature = count_feature.fillna(0)
     return count_feature
-
-# def get_current_feature(data):
-#     data['current_week'] = pd.to_datetime(data['time_stamp']).map(lambda x:x.weekday())
-#     # data['current_hour'] =
-#     return data;
 
 offline_train = train_wifi[(train_wifi['time_stamp'] < '2017-08-25 00:00')&(train_wifi['time_stamp'] >= '2017-08-18 00:00' )]
 # print(offline_train.head())

@@ -6,12 +6,6 @@ import lightgbm as lgb
 from tools import get_features_list,hafuman_km
 # load model to predict
 
-
-
-
-
-
-
 features = get_features_list()
 
 dir = './data/'
@@ -41,11 +35,8 @@ sub['time_stamp'] = pd.to_datetime(sub['time_stamp'])
 sub['current_hour'] =  pd.DatetimeIndex(sub.time_stamp).hour
 # sub['current_week'] =  pd.DatetimeIndex(sub.time_stamp).dayofweek
 
-sub['distance'] = hafuman_km(sub['s_longitude'],sub['s_latitude'],sub['longitude'],sub['latitude'])
-
-                                                                                    
+sub['distance'] = hafuman_km(sub['s_longitude'],sub['s_latitude'],sub['longitude'],sub['latitude'])                                                                        
 #sub['distance'] = np.log1p(sub['distance'])
-
 
 sub['category_id'] = sub['category_id'].map(lambda x:str(x).split('_')[1])
 sub['mall_id'] = sub['mall_id'].map(lambda x:str(x).split('_')[1])
