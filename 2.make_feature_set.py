@@ -3,7 +3,7 @@
 #2 .|8月11日-24日的候选特征|8月25日-8月31日构造线下验证|
 #3 .|8月4日-17日的候选特征|8月18日-8月24日构造线下训练数据|
 
-from tools import hafuman_km,mode_function
+from tools import hafuman_km,mode_function,bearing_array
 import math
 
 import numpy as np
@@ -17,12 +17,23 @@ train_wifi = pd.merge(train_wifi,user_shop_behavior[['index','time_stamp']])
 del user_shop_behavior;gc.collect()
 # print(train_wifi.head())
 # 候选特征
-def make_features(feature,org_data,mode= list([]),index='index',row_id='index'):
+def make_features(feature,org_data,mode= list([2,5,3]),index='index',row_id='index'):
     # 选择构造特征的候选集的数量 n = 1 2 3 .
-
-    # ps：自己提取啊啊啊啊啊啊啊
-    # 这个部分大家可以自己筛选，我是先选择强度，后选择频次
-    # 制作标签
+    # print(feature)
+    print(mode[0],mode[1],mode[2])
+    train_wifi_train_candidate = feature.sort_values([index, 'strength'], ascending=False).groupby([index], as_index=False).head(mode[0])
+    # 选择候选集中出现bssid - shopid 的匹配频次
+    train_wifi_train_candidate_tmp = train_wifi_train_candidate.groupby(['bssid', 'shop_id'], as_index=False).strength.agg(
+        {'bsCount': 'count'})
+    train_wifi_train_candidate = pd.merge(train_wifi_train_candidate_tmp,train_wifi_train_candidate,on=['bssid','shop_id'],how='left')
+    train_wifi_train_candidate = train_wifi_train_candidate.sort_values(['bssid', 'bsCount'], ascending=False)
+    train_wifi_train_candidate = train_wifi_train_candidate.groupby(['bssid'], as_index=False).head(mode[1])
+    train_wifi_train_candidate.drop(['connect','index','mall_id','strength','time_stamp'],axis=1,inplace=True)
+    # train_wifi_train_candidate = pd.merge(train_wifi_train_candidate,feature,on=['bssid','shop_id'])
+    # print(train_wifi_train_candidate)
+    # 选择训练数据供候选的bassid
+    train_wifi_test_candidate = org_data.sort_values([row_id, 'strength'], ascending=False).groupby([row_id],as_index=False).head(mode[2])
+    most_prop = pd.merge(train_wifi_train_candidate, train_wifi_test_candidate, how='right', on='bssid')
 
     # 制作标签
     most_prop['connect'] = most_prop['connect'].astype(int)
@@ -32,7 +43,7 @@ def make_features(feature,org_data,mode= list([]),index='index',row_id='index'):
         most_prop['label'] = most_prop.shop_id_y == most_prop.shop_id_x
         most_prop['label'] = most_prop['label'].astype(int)
     return most_prop
-# 自己制作特征
+
 def get_one_feature(count_feature):
     dir = './data/'  
     user_behavier = pd.read_csv(dir + 'ccf_first_round_user_shop_behavior.csv')[['longitude','latitude']].reset_index()
@@ -49,12 +60,20 @@ def get_one_feature(count_feature):
     count_feature_with_shop_price_position['distance_history'] = hafuman_km(count_feature_with_shop_price_position['s_longitude'],count_feature_with_shop_price_position['s_latitude'],
     																		count_feature_with_shop_price_position['longitude'],count_feature_with_shop_price_position['latitude'])
 
+    count_feature_with_shop_price_position['history_bearing_array'] = bearing_array(count_feature_with_shop_price_position.s_latitude.values, count_feature_with_shop_price_position.s_longitude.values, 
+    																				count_feature_with_shop_price_position.latitude.values, count_feature_with_shop_price_position.longitude.values)    
+
     # 1 shop 的行为范围中位数（测试发现中位数效果好）
     shop_scale = count_feature_with_shop_price_position.groupby(['mall_id','shop_id'],as_index=False).distance_history.agg({'s_median_scale':np.median})
     count_feature = pd.merge(count_feature,shop_scale,on=['mall_id','shop_id'],how='left')
     del shop_scale;gc.collect()
+    # 1.2 shop 的行为角度特征，表示历史的方向特征 // 加了当前和历史的差值特征--特征效果较好 同时保留当前特征
+    shop_degree = count_feature_with_shop_price_position.groupby(['mall_id','shop_id'],as_index=False).history_bearing_array.agg({'history_bearing_array_median':np.median})
+    count_feature = pd.merge(count_feature,shop_degree,on=['mall_id','shop_id'],how='left')
+    del shop_degree;gc.collect()
+
     # 强度特征 均值
-    # 2.1.历史商店周围的平均wifi强度 
+    # 2.1.历史商店周围的平均wifi强度 （目的：当前wifi强度 - 历史wifi强度均值）// 
     shop_around_wifi_power = count_feature_with_shop_price_position.groupby(['mall_id','shop_id'],as_index=False).strength.agg({'s_avg_power':np.mean})
     count_feature = pd.merge(count_feature,shop_around_wifi_power,on=['mall_id','shop_id'],how='left')
     del shop_around_wifi_power;gc.collect()
@@ -83,21 +102,29 @@ def get_one_feature(count_feature):
     del wifi_power_feat;gc.collect()
 
     # 时间串信息组合
-    count_feature['time_stamp'] = pd.to_datetime(count_feature['time_stamp'])
-    count_feature['history_hour'] =  pd.DatetimeIndex(count_feature.time_stamp).hour
-    count_feature['history_day'] =  pd.DatetimeIndex(count_feature.time_stamp).day
+    # count_feature['time_stamp'] = pd.to_datetime(count_feature['time_stamp'])
+    # count_feature['history_hour'] =  pd.DatetimeIndex(count_feature.time_stamp).hour
+    # count_feature['history_day'] =  pd.DatetimeIndex(count_feature.time_stamp).day
 
-    day_of_list = max(list(count_feature['history_day'].unique()))
+    # day_of_list = max(list(count_feature['history_day'].unique()))
     # print(day_of_list)
     # 构造时间推移特征值
-    for day_index in [1,3,5,7]:
-        day_count_feature = count_feature[count_feature.history_day >= (day_of_list - day_index + 1)]
-        day_count_feature_shop_hot = day_count_feature.groupby(['mall_id','shop_id'],as_index=False).strength.count()
-        day_count_feature_shop_hot.rename(columns={'strength':'%d_shop_hot'%(day_index)},inplace=True)
-        count_feature = pd.merge(count_feature,day_count_feature_shop_hot,on=['mall_id','shop_id'],how='left')
-        count_feature = count_feature.fillna(0)
-
+    # for day_index in [1,3,5,7]:
+    #     day_count_feature = count_feature[count_feature.history_day >= (day_of_list - day_index + 1)]
+    #     day_count_feature_shop_hot = day_count_feature.groupby(['mall_id','shop_id'],as_index=False).strength.count()
+    #     day_count_feature_shop_hot.rename(columns={'strength':'%d_shop_hot'%(day_index)},inplace=True)
+    #     count_feature = pd.merge(count_feature,day_count_feature_shop_hot,on=['mall_id','shop_id'],how='left')
+    #     count_feature = count_feature.fillna(0)
+    
     # 链接时发生的特征
+
+
+    print('make_features')
+    # wifi信息统计
+    wifi_rank_features = count_feature.groupby(['mall_id','bssid','nature_order'],as_index=False).strength.count()
+    wifi_rank_features.rename(columns={'strength':'rank_times'},inplace=True)
+    count_feature = pd.merge(count_feature,wifi_rank_features,on=['mall_id','bssid','nature_order'],how='left')
+
 
     # 3.2 wifi被链接的次数
     wifi_is_connected_times = count_feature[count_feature['connect'] == 1].groupby(['mall_id','bssid'],as_index=False).strength.count()
@@ -151,10 +178,17 @@ def get_one_feature(count_feature):
 
     count_feature['tfid_features'] = np.log1p(count_feature['shop_around_ration_tfidf']) * count_feature['wifi_shop_ratio_tfidf']
 
+    # count_feature['sun_features'] = count_feature['shop_around_count'] + count_feature['mall_wifi_count'] + count_feature['wifi_shop_count'] + count_feature['wifi_shop_length']
     # 构造集合特征
-
+    
     count_feature = count_feature.fillna(0)
+    count_feature.rename(columns={'nature_order':'history_nature_order'},inplace=True)
     return count_feature
+
+# def get_current_feature(data):
+#     data['current_week'] = pd.to_datetime(data['time_stamp']).map(lambda x:x.weekday())
+#     # data['current_hour'] =
+#     return data;
 
 offline_train = train_wifi[(train_wifi['time_stamp'] < '2017-08-25 00:00')&(train_wifi['time_stamp'] >= '2017-08-18 00:00' )]
 # print(offline_train.head())
@@ -162,16 +196,15 @@ offline_train_feature = train_wifi[(train_wifi['time_stamp'] < '2017-08-18 00:00
 # print(offline_train_feature.head())
 offline_train_feature = get_one_feature(offline_train_feature)
 # print(offline_train_feature.head())
-
-
-print(offline_train_feature.describe())
+# print(offline_train_feature.describe())
 print(offline_train_feature.columns)
+
 offline_train = make_features(offline_train_feature,offline_train)
 # offline_train = get_current_feature(offline_train)
 print(offline_train.head())
 print(offline_train.columns)
 offline_train.to_csv(dir + 'offline_train.csv',index=False)
-del offline_train
+del offline_train;gc.collect()
 
 offline_val = train_wifi[(train_wifi['time_stamp'] < '2017-09-01 00:00')&(train_wifi['time_stamp'] >= '2017-08-25 00:00' )]
 # print(offline_val.head())
@@ -182,7 +215,7 @@ offline_val_feature = get_one_feature(offline_val_feature)
 offline_val = make_features(offline_val_feature,offline_val)
 print(offline_val.columns)
 offline_val.to_csv(dir + 'offline_val.csv',index=False)
-del offline_val
+del offline_val;gc.collect()
 
 sub_wifi = pd.read_csv(dir + 'test_wifi.csv')
 # print(sub_wifi.head())
@@ -193,4 +226,4 @@ online_sub_feature = get_one_feature(online_sub_feature)
 sub_wifi = make_features(online_sub_feature,sub_wifi,row_id='row_id')
 print(sub_wifi.columns)
 sub_wifi.to_csv(dir + 'sub_wifi.csv',index=False)
-del sub_wifi
+del sub_wifi;gc.collect()

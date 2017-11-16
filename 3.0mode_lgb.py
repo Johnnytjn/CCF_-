@@ -2,7 +2,7 @@
 import gc
 import pandas as pd
 import numpy as np
-from tools import hafuman_km,get_features_list
+from tools import bearing_array,hafuman_km,get_features_list
 # 对nan不处理版本
 # def customs_acc(pred_probs,dtrain):
 #     label = dtrain.get_label()
@@ -66,14 +66,32 @@ train['current_hour'] =  pd.DatetimeIndex(train.time_stamp).hour
 # train['current_week'] =  pd.DatetimeIndex(train.time_stamp).dayofweek
 
 train['distance'] = hafuman_km(train['s_longitude'],train['s_latitude'],train['longitude'],train['latitude'])
-
+train['current_bearing_array'] = bearing_array(train.s_latitude.values, train.s_longitude.values, 
+                                                                                    train.latitude.values, train.longitude.values)  
 # train['distance'] = np.log1p(train['distance'])
 
+# 由于历史记录的意义并没有那么明确，因此将历史转化为和当前的差值处理
+train['c_wifi_var'] = train['strength'] - train['c_sw_average']
+train['wifi_var'] = train['strength'] - train['s_avg_power']
+
+train['s_wifi_var'] = train['strength'] - train['w_avg_power']
+train['sb_wifi_var'] = train['strength'] - train['sb_history_avg_power']
 
 
+train['angle_var'] = train['history_bearing_array_median'] - train['current_bearing_array']
+train['c_sb_wifi_var'] = train['strength'] - train['c_sb_history_avg_power']
+
+train['s_sb_wifi_var_ratio'] = train['c_sb_wifi_var'] / (train['sb_wifi_var']+0.0001)
 train['category_id'] = train['category_id'].map(lambda x:str(x).split('_')[1])
 train['mall_id'] = train['mall_id'].map(lambda x:str(x).split('_')[1])
+train['shop_id_f'] = train['shop_id'].map(lambda x:str(x).split('_')[1])
+train['bssid_f'] = train['bssid'].map(lambda x:str(x).split('_')[1])
 
+# train['sw_average_ratio'] = (train['c_sw_average'] + 0.5 ) / (train['sw_average'] + 1)
+# train['bw_average_ratio'] = (train['c_bw_average'] + 0.5 )/ (train['bw_average'] + 1)
+
+# train['price'] = np.log1p(train['price'])
+#
 print(train.head())
 print(train.columns)
 # 特征字段
@@ -95,12 +113,27 @@ val['current_hour'] =  pd.DatetimeIndex(val.time_stamp).hour
 
 del user_info;gc.collect()
 val['distance'] = hafuman_km(val['s_longitude'],val['s_latitude'],val['longitude'],val['latitude'])
-
+val['current_bearing_array'] = bearing_array(val.s_latitude.values, val.s_longitude.values, 
+                                                                                    val.latitude.values, val.longitude.values)  
 #val['distance'] = np.log1p(val['distance'])
 
+val['c_wifi_var'] = val['strength'] - val['c_sw_average']
+val['wifi_var'] = val['strength'] - val['s_avg_power']
+val['s_wifi_var'] = val['strength'] - val['w_avg_power']
+val['sb_wifi_var'] = val['strength'] - val['sb_history_avg_power']
+val['angle_var'] = val['history_bearing_array_median'] - val['current_bearing_array']
+val['c_sb_wifi_var'] = val['strength'] - val['c_sb_history_avg_power']
+
+val['s_sb_wifi_var_ratio'] = val['c_sb_wifi_var'] / (val['sb_wifi_var']+0.0001)
 val['category_id'] = val['category_id'].map(lambda x:str(x).split('_')[1])
 val['mall_id'] = val['mall_id'].map(lambda x:str(x).split('_')[1])
+val['shop_id_f'] = val['shop_id'].map(lambda x:str(x).split('_')[1])
+val['bssid_f'] = val['bssid'].map(lambda x:str(x).split('_')[1])
 
+# val['sw_average_ratio'] = (val['c_sw_average'] + 0.5 ) / (val['sw_average'] + 1)
+# val['bw_average_ratio'] = (val['c_bw_average'] + 0.5 ) / (val['bw_average'] + 1)
+
+# val['price'] = np.log1p(val['price'])
 
 print(val.head())
 

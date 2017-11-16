@@ -3,7 +3,7 @@ import gc
 import pandas as pd
 import numpy as np
 import lightgbm as lgb
-from tools import get_features_list,hafuman_km
+from tools import get_features_list,hafuman_km,bearing_array
 # load model to predict
 
 features = get_features_list()
@@ -35,11 +35,25 @@ sub['time_stamp'] = pd.to_datetime(sub['time_stamp'])
 sub['current_hour'] =  pd.DatetimeIndex(sub.time_stamp).hour
 # sub['current_week'] =  pd.DatetimeIndex(sub.time_stamp).dayofweek
 
-sub['distance'] = hafuman_km(sub['s_longitude'],sub['s_latitude'],sub['longitude'],sub['latitude'])                                                                        
+sub['distance'] = hafuman_km(sub['s_longitude'],sub['s_latitude'],sub['longitude'],sub['latitude'])
+sub['current_bearing_array'] = bearing_array(sub.s_latitude.values, sub.s_longitude.values, 
+                                                                                    sub.latitude.values, sub.longitude.values)  
+                                                                                    
 #sub['distance'] = np.log1p(sub['distance'])
+sub['c_wifi_var'] = sub['strength'] - sub['c_sw_average']
+sub['wifi_var'] = sub['strength'] - sub['s_avg_power']
+sub['s_wifi_var'] = sub['strength'] - sub['w_avg_power']
+sub['sb_wifi_var'] = sub['strength'] - sub['sb_history_avg_power']
+sub['c_sb_wifi_var'] = sub['strength'] - sub['c_sb_history_avg_power']
+
+sub['angle_var'] = sub['history_bearing_array_median'] - sub['current_bearing_array']
+
+sub['s_sb_wifi_var_ratio'] = sub['c_sb_wifi_var'] / (sub['sb_wifi_var']+0.0001)
 
 sub['category_id'] = sub['category_id'].map(lambda x:str(x).split('_')[1])
 sub['mall_id'] = sub['mall_id'].map(lambda x:str(x).split('_')[1])
+sub['shop_id_f'] = sub['shop_id'].map(lambda x:str(x).split('_')[1])
+sub['bssid_f'] = sub['bssid'].map(lambda x:str(x).split('_')[1])
 print(sub.head())
 sub_r_s = sub[['row_id','shop_id']]
 sub_ = sub[features]

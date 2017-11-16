@@ -1,4 +1,6 @@
+#coding:utf-8
 # 引入需要的包
+
 import pandas as pd
 from tqdm import tqdm
 
@@ -22,10 +24,13 @@ def get_wifi_dict(df):
         'bssid': [],
         'strength': [],
         'connect': [],
-        'mall_id': []
+        'mall_id': [],
+        'nature_order':[]
+
      }
     for index, row in tqdm(df.iterrows()):
         # print(index)
+        order_index = 1
         for wifi in row.wifi_infos.split(';'):
             info = wifi.split('|')
             wifiDict['row_id'].append(row.row_id)
@@ -33,6 +38,8 @@ def get_wifi_dict(df):
             wifiDict['bssid'].append(info[0])
             wifiDict['strength'].append(info[1])
             wifiDict['connect'].append(info[2])
+            wifiDict['nature_order'].append(order_index)
+            order_index = order_index + 1
 
     print('done')
     del df
